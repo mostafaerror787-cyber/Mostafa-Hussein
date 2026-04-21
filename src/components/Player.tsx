@@ -130,7 +130,11 @@ export default function Player({ currentSong, onDelete, onNext, onPrevious }: Pl
   useEffect(() => {
     if (audioRef.current) {
       if (isPlaying) {
-        audioRef.current.play().catch(() => setIsPlaying(false));
+        audioRef.current.play().catch((err) => {
+          console.error('Playback failed:', err);
+          setError(`Playback failed: ${err.message || 'Browser blocked audio or file is invalid'}`);
+          setIsPlaying(false);
+        });
       } else {
         audioRef.current.pause();
       }

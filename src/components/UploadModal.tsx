@@ -75,7 +75,7 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
 
     try {
       // Use proxy to bypass CORS
-      const targetUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3';
+      const targetUrl = activeTab === 'link' ? query : 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3';
       const proxyUrl = `/api/download?url=${encodeURIComponent(targetUrl)}`;
       const response = await fetch(proxyUrl);
       if (!response.ok) throw new Error('Could not access the original audio file');
@@ -115,8 +115,8 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
       onUpload();
       onClose();
     } catch (err: any) {
-      console.error(err);
-      setError(`Save error: ${err.message || 'Could not add song'}`);
+      console.error('Import process failed:', err);
+      setError(`Save error: ${err.message || 'Could not add song'}. Check your network and try again.`);
     } finally {
       setIsUploading(false);
       setImportingId(null);
