@@ -31,7 +31,14 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
     setYoutubeResults([]);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      // Attempt to get API key from common locations
+      const apiKey = ((import.meta as any).env?.VITE_GEMINI_API_KEY) || (typeof process !== 'undefined' ? (process.env as any).GEMINI_API_KEY : null);
+      
+      if (!apiKey) {
+        throw new Error('Gemini API key is not configured. Please check your environment settings.');
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
       const prompt = activeTab === 'youtube' 
         ? `Search YouTube for "${query}" and return the top 4 results. For each result, provide: title, artist/channel, coverUrl (thumbnail), and a mock duration. Return only JSON as an array of objects.`
         : `Extract music track metadata from this URL: "${query}". Return only JSON as an array with ONE object containing: title, artist, coverUrl, and duration.`;
@@ -75,11 +82,26 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
 
     try {
       // Use proxy to bypass CORS
-      const targetUrl = activeTab === 'link' ? query : 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3';
+      // Use a set of varied fallback URLs for a better demo feel if needed
+      const variations = [
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3',
+        'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3'
+      ];
+      const randomIdx = Math.floor(Math.random() * variations.length);
+      const targetUrl = activeTab === 'link' ? query : variations[randomIdx];
+      
       const proxyUrl = `/api/download?url=${encodeURIComponent(targetUrl)}`;
       const response = await fetch(proxyUrl);
-      if (!response.ok) throw new Error('Could not access the original audio file');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.details || 'Could not access the original audio file via proxy');
+      }
       const audioBlob = await response.blob();
+
+      if (audioBlob.size < 1000) {
+        throw new Error('Fetched file is too small to be a valid audio track');
+      }
 
       // Upload to Firebase Storage for cloud persistence
       const storageRef = ref(storage, `songs/${auth.currentUser.uid}/${Date.now()}-${song.title}.mp3`);
@@ -116,7 +138,7 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
       onClose();
     } catch (err: any) {
       console.error('Import process failed:', err);
-      setError(`Save error: ${err.message || 'Could not add song'}. Check your network and try again.`);
+      setError(`Save error: ${err.message || 'Could not add song'}. This might be due to a CORS issue or an invalid project configuration.`);
     } finally {
       setIsUploading(false);
       setImportingId(null);

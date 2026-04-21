@@ -24,14 +24,17 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }: SidebarItemProps) =
   </motion.button>
 );
 
-export default function Sidebar({ isOpen, toggle, isLikedView, onViewChange }: { 
+export default function Sidebar({ isOpen, toggle, isLikedView, onViewChange, userEmail }: { 
   isOpen: boolean; 
   toggle: () => void;
   isLikedView: boolean;
   onViewChange: (isLiked: boolean) => void;
+  userEmail?: string | null;
 }) {
   const [isMainOpen, setIsMainOpen] = useState(true);
   const [isPlaylistsOpen, setIsPlaylistsOpen] = useState(true);
+
+  const isAdmin = userEmail === 'mostafaerror787@gmail.com';
 
   return (
     <AnimatePresence>
@@ -64,7 +67,7 @@ export default function Sidebar({ isOpen, toggle, isLikedView, onViewChange }: {
               <div className="flex flex-col gap-1">
                 <SidebarItem 
                   icon={Home} 
-                  label="Home / My Songs" 
+                  label="All Songs" 
                   active={!isLikedView} 
                   onClick={() => {
                     onViewChange(false);
@@ -74,7 +77,7 @@ export default function Sidebar({ isOpen, toggle, isLikedView, onViewChange }: {
                 <SidebarItem icon={Search} label="Search" onClick={() => document.querySelector<HTMLInputElement>('input[placeholder*="Search"]')?.focus()} />
                 <SidebarItem 
                   icon={Library} 
-                  label="Your Library" 
+                  label="Song Library" 
                   onClick={() => {
                     onViewChange(false);
                     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -84,20 +87,22 @@ export default function Sidebar({ isOpen, toggle, isLikedView, onViewChange }: {
             </div>
 
             {/* Playlists Section */}
-            <div className="flex flex-col gap-2">
-              <div className="flex flex-col gap-1">
-                <SidebarItem icon={PlusSquare} label="Create Playlist" onClick={() => alert('Playlist creation coming soon!')} />
-                <SidebarItem 
-                  icon={Heart} 
-                  label="Liked Songs" 
-                  active={isLikedView}
-                  onClick={() => {
-                    onViewChange(true);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }} 
-                />
+            {isAdmin && (
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-1">
+                  <SidebarItem icon={PlusSquare} label="Create Playlist" onClick={() => alert('Playlist creation coming soon!')} />
+                  <SidebarItem 
+                    icon={Heart} 
+                    label="Liked Songs" 
+                    active={isLikedView}
+                    onClick={() => {
+                      onViewChange(true);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }} 
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
       <div className="mt-auto pt-6 border-t border-slate-900">

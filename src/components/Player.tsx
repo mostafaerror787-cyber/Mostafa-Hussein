@@ -77,43 +77,55 @@ export default function Player({ currentSong, onDelete, onNext, onPrevious }: Pl
 
     const loadAudio = async () => {
       try {
+        // Clear previous state
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+        setAudioUrl(null);
+        setError(null);
+
         // 1. Check local IndexedDB first
         const db = await getDB();
         const localSong = await db.get('songs', currentSong.id);
         
-        if (localSong && localSong.audioData) {
+        if (localSong && localSong.audioData instanceof Blob) {
+          console.log("Playing from local cache:", currentSong.title);
           objectUrl = URL.createObjectURL(localSong.audioData);
           setAudioUrl(objectUrl);
           setIsPlaying(true);
-        } else if (currentSong.audioUrl) {
+        } else if (currentSong.audioUrl && (currentSong.audioUrl.startsWith('http') || currentSong.audioUrl.startsWith('https'))) {
           // 2. Fallback to Cloud Storage URL if local is missing
+          console.log("Playing from cloud URL:", currentSong.title);
           setAudioUrl(currentSong.audioUrl);
           setIsPlaying(true);
           
-          // Optional: Fetch and cache in background for offline use
-          fetch(currentSong.audioUrl)
-            .then(res => res.blob())
-            .then(blob => {
-              saveSongLocally({
-                id: currentSong.id,
-                title: currentSong.title,
-                artist: currentSong.artist,
-                audioData: blob,
-                coverUrl: currentSong.coverUrl,
-                audioUrl: currentSong.audioUrl,
-                duration: currentSong.duration,
-                genre: currentSong.genre,
-                ownerId: currentSong.ownerId
-              });
-            }).catch(err => console.warn('Cache failed:', err));
+          // Background fetch to cache for offline use
+          if (navigator.onLine) {
+            fetch(currentSong.audioUrl, { mode: 'cors' })
+              .then(res => {
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return res.blob();
+              })
+              .then(blob => {
+                saveSongLocally({
+                  id: currentSong.id,
+                  title: currentSong.title,
+                  artist: currentSong.artist,
+                  audioData: blob,
+                  coverUrl: currentSong.coverUrl,
+                  audioUrl: currentSong.audioUrl,
+                  duration: currentSong.duration,
+                  genre: currentSong.genre,
+                  ownerId: currentSong.ownerId
+                });
+              }).catch(err => console.warn('Background cache failed:', err));
+          }
         } else {
           setAudioUrl(null);
-          setError('Audio file not found in local library');
+          setError('No valid audio source found for this track.');
           setIsPlaying(false);
         }
-      } catch (err) {
-        console.error('Playback error:', err);
-        setError('Error loading audio');
+      } catch (err: any) {
+        console.error('Playback loading error:', err);
+        setError(`Error loading audio: ${err.message || 'Unknown error'}`);
         setIsPlaying(false);
       }
     };
@@ -309,9 +321,21 @@ export default function Player({ currentSong, onDelete, onNext, onPrevious }: Pl
         <audio 
           ref={audioRef} 
           src={audioUrl || undefined} 
+          crossOrigin="anonymous"
           onTimeUpdate={onTimeUpdate}
           onLoadedMetadata={onTimeUpdate}
           onEnded={handleEnded}
+          onError={(e) => {
+            const target = e.currentTarget;
+            console.error('Audio element error:', target.error);
+            let msg = 'Playback error';
+            if (target.error?.code === 1) msg = 'Playback aborted';
+            if (target.error?.code === 2) msg = 'Network error';
+            if (target.error?.code === 3) msg = 'Audio decoding failed';
+            if (target.error?.code === 4) msg = 'Audio source not supported or CORS blocked';
+            setError(msg);
+            setIsPlaying(false);
+          }}
         />
 
         {/* Song Info */}

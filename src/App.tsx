@@ -23,6 +23,7 @@ export default function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [loading, setLoading] = useState(true);
 
+  const isAdmin = user?.email === 'mostafaerror787@gmail.com';
   const currentSong = songs.find(s => s.id === currentSongId) || null;
 
   useEffect(() => {
@@ -83,15 +84,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!user) {
-      setSongs([]);
-      return;
-    }
-
     if (isOnline) {
       const q = query(
         collection(db, 'songs'),
-        where('ownerId', '==', user.uid),
         orderBy('createdAt', 'desc')
       );
 
@@ -101,6 +96,21 @@ export default function App() {
           ...doc.data()
         })) as Song[];
         setSongs(fetchedSongs);
+        setLoading(false);
+      }, (error: any) => {
+        console.error("Error fetching songs from Firestore:", error);
+        
+        // Handle Missing or insufficient permissions specifically if needed
+        if (error.code === 'permission-denied') {
+          console.warn("Retrying fetch with fallback...");
+        }
+
+        // Fallback to local songs 
+        getLocalSongs().then(localTracks => {
+          if (localTracks && localTracks.length > 0) {
+            setSongs(localTracks as any);
+          }
+        }).finally(() => setLoading(false));
       });
 
       return () => unsubscribe();
@@ -110,10 +120,13 @@ export default function App() {
         setSongs(localTracks as any);
       });
     }
-  }, [user, isOnline]);
+  }, [isOnline]);
 
   useEffect(() => {
     if (songs.length > 0 && user) {
+      const isAdmin = user.email === 'mostafaerror787@gmail.com';
+      if (!isAdmin) return;
+
       const targets = songs.filter(s => 
         s.title.toLowerCase().includes('b.b king') || 
         s.title.toLowerCase().includes('wegz-elbaght') ||
@@ -167,9 +180,10 @@ export default function App() {
     <div className="flex bg-black min-h-screen text-slate-100 font-sans selection:bg-brand/30 selection:text-white overflow-hidden">
       <Sidebar 
         isOpen={isSidebarOpen} 
-        toggle={() => setIsSidebarOpen(false)} 
+        toggle={() => setIsSidebarOpen(!isSidebarOpen)} 
         isLikedView={isLikedView}
         onViewChange={setIsLikedView}
+        userEmail={user?.email}
       />
 
       <main 
@@ -213,12 +227,14 @@ export default function App() {
 
             {user ? (
               <>
-                <button 
-                  onClick={() => setIsUploadOpen(true)}
-                  className="text-sm font-bold text-brand hover:opacity-80 transition-colors"
-                >
-                  Upload Song
-                </button>
+                {isAdmin && (
+                  <button 
+                    onClick={() => setIsUploadOpen(true)}
+                    className="text-sm font-bold text-brand hover:opacity-80 transition-colors"
+                  >
+                    Upload Song
+                  </button>
+                )}
                 <div className="flex items-center gap-3 ml-4 border-l border-slate-800 pl-4">
                   <div className="text-left">
                     <p className="text-xs font-bold text-white">{user.displayName}</p>
@@ -245,66 +261,77 @@ export default function App() {
           <div className="flex items-end justify-between mb-10">
             <div>
               <h2 className="text-3xl font-bold text-white tracking-tight mb-1">
-                {isLikedView ? 'Liked Songs' : 'My Songs'}
+                {isLikedView ? 'Liked Songs' : 'Discovery Library'}
               </h2>
-              {!user && <p className="text-slate-500 text-sm font-medium italic">Sign in to sync your music permanently</p>}
-              {user && (
+              {isLikedView ? (
                 <p className="text-slate-400 text-sm font-medium">
-                  {isLikedView ? `You have liked ${filteredSongs.length} songs` : `You have ${songs.length} songs ready to play`}
+                  You have liked {filteredSongs.length} songs
+                </p>
+              ) : (
+                <p className="text-slate-400 text-sm font-medium">
+                  {songs.length} songs ready to play
                 </p>
               )}
             </div>
-            {user && (
+            {isAdmin && (
                <div className="flex gap-2 bg-slate-900 p-1 rounded-xl">
-                 <button className="px-4 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-brand shadow-sm">My Music</button>
+                 <button className="px-4 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-brand shadow-sm">Admin Panel</button>
                  <button 
                   onClick={() => setIsManageMode(!isManageMode)}
                   className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${isManageMode ? 'bg-red-600 text-white shadow-lg shadow-red-900/20' : 'text-slate-500 hover:text-white'}`}
                  >
-                   {isManageMode ? 'Done Managing' : 'Manage Tracks'}
+                    {isManageMode ? 'Done Managing' : 'Manage Tracks'}
                  </button>
                </div>
             )}
           </div>
 
-          {!user ? (
-            <div className="py-20 flex flex-col items-center justify-center text-center">
-              <div className="w-20 h-20 bg-slate-900 text-brand rounded-[2rem] flex items-center justify-center mb-6 shadow-2xl shadow-brand/10">
-                <SearchIcon className="w-8 h-8" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">Build your library</h3>
-              <p className="text-slate-500 max-w-xs text-sm leading-relaxed">Sign in and upload your songs to listen anytime, anywhere, even offline.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-8">
-              <AnimatePresence>
+          <AnimatePresence mode="popLayout">
+            {!user && songs.length === 0 && !loading && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="py-20 flex flex-col items-center justify-center text-center"
+              >
+                <div className="w-20 h-20 bg-slate-900 text-brand rounded-[2rem] flex items-center justify-center mb-6 shadow-2xl shadow-brand/10">
+                  <SearchIcon className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">Library is empty</h3>
+                <p className="text-slate-500 max-w-xs text-sm leading-relaxed">Sign in as admin to upload your songs and build your discovery library.</p>
+              </motion.div>
+            )}
+            
+            {(songs.length > 0 || user) && (
+              <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-8">
                 {filteredSongs.map((song) => (
                   <TrackCard 
                     key={song.id} 
                     song={song} 
                     onPlay={(s) => setCurrentSongId(s.id)} 
-                    onUpdate={() => {}} // snapshot handles it or we could force refresh
+                    onUpdate={() => {}} 
                     onDelete={() => handleRemoveSong(song.id)}
                     isManageMode={isManageMode}
+                    userEmail={user?.email || null}
                   />
                 ))}
-              </AnimatePresence>
-              
-              {isOnline && (
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  onClick={() => setIsUploadOpen(true)}
-                  className="aspect-square rounded-[2rem] border-2 border-dashed border-slate-900 flex items-center justify-center cursor-pointer group hover:border-brand/40 hover:bg-slate-900/50 transition-all"
-                >
-                  <div className="text-center p-4">
-                    <Plus className="mx-auto mb-3 text-slate-700 group-hover:text-brand transition-colors" />
-                    <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest group-hover:text-brand">Add Song</p>
-                  </div>
-                </motion.div>
-              )}
-            </div>
-          )}
+                
+                {isAdmin && isOnline && (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    onClick={() => setIsUploadOpen(true)}
+                    className="aspect-square rounded-[2rem] border-2 border-dashed border-slate-900 flex items-center justify-center cursor-pointer group hover:border-brand/40 hover:bg-slate-900/50 transition-all"
+                  >
+                    <div className="text-center p-4">
+                      <Plus className="mx-auto mb-3 text-slate-700 group-hover:text-brand transition-colors" />
+                      <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest group-hover:text-brand">Add Song</p>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+            )}
+          </AnimatePresence>
         </section>
       </main>
 

@@ -11,6 +11,11 @@ service cloud.firestore {
       return request.auth != null;
     }
     
+    function isAdmin() {
+      return isSignedIn() && 
+             request.auth.token.email == 'mostafaerror787@gmail.com';
+    }
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
@@ -37,38 +42,41 @@ service cloud.firestore {
                       isValidUser(incoming());
     }
 
-    // Song Validation
+    // Song Validation - Improved for compatibility and identity integrity
     function isValidSong(data) {
-      return data.title is string && data.title.size() <= 200 &&
-             data.artist is string && data.artist.size() <= 100 &&
-             data.ownerId is string && data.ownerId.size() <= 128 &&
-             data.duration is string && data.duration.size() <= 20 &&
-             data.genre is string && data.genre.size() <= 50 &&
-             (data.coverUrl == null || (data.coverUrl is string && data.coverUrl.size() <= 500)) &&
+      return (data.get('title', null) == null || (data.title is string && data.title.size() <= 200)) &&
+             (data.get('artist', null) == null || (data.artist is string && data.artist.size() <= 100)) &&
+             (data.get('ownerId', null) == null || (data.ownerId is string && data.ownerId.size() <= 128)) &&
+             (data.get('duration', null) == null || (data.duration is string && data.duration.size() <= 20)) &&
+             (data.get('genre', null) == null || (data.genre is string && data.genre.size() <= 50)) &&
+             (data.get('audioUrl', null) == null || (data.audioUrl is string && data.audioUrl.size() <= 1000)) &&
+             (data.get('coverUrl', null) == null || (data.coverUrl is string && data.coverUrl.size() <= 1000)) &&
+             (data.get('userId', null) == null || (data.userId is string && data.userId.size() <= 128)) &&
              (data.get('isLiked', null) == null || data.isLiked is bool) &&
-             data.createdAt is timestamp &&
+             (data.get('createdAt', null) == null || data.createdAt is timestamp) &&
              (data.get('updatedAt', null) == null || data.updatedAt is timestamp);
     }
 
     match /songs/{songId} {
-      allow get: if isSignedIn() && existing().ownerId == request.auth.uid && isValidId(songId);
-      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      // Evaluation based access for public lists
+      allow list: if resource.data.title is string; 
+      allow get: if true;
       
-      allow create: if isSignedIn() && 
-                    incoming().ownerId == request.auth.uid &&
+      allow create: if (isAdmin() || (isSignedIn() && incoming().ownerId == request.auth.uid)) && 
                     isValidSong(incoming()) &&
                     incoming().createdAt == request.time &&
                     isValidId(songId);
 
-      allow update: if isSignedIn() && 
-                    existing().ownerId == request.auth.uid &&
+      allow update: if (isAdmin() || (isSignedIn() && incoming().ownerId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['isLiked']))) && 
                     isValidSong(incoming()) &&
-                    incoming().ownerId == existing().ownerId &&
-                    incoming().createdAt == existing().createdAt &&
-                    isValidId(songId) &&
-                    incoming().diff(existing()).affectedKeys().hasOnly(['title', 'artist', 'genre', 'coverUrl', 'updatedAt', 'isLiked']);
+                    isValidId(songId);
                     
-      allow delete: if isSignedIn() && (existing().get('ownerId', '') == request.auth.uid || !('ownerId' in existing()));
+      allow delete: if isAdmin() && isValidId(songId);
+    }
+
+    // Health check
+    match /test/connection {
+      allow read: if true;
     }
   }
 }

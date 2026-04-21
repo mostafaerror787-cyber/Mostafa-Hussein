@@ -14,15 +14,20 @@ interface TrackCardProps {
   onUpdate: () => void;
   onDelete: () => void;
   isManageMode?: boolean;
+  userEmail?: string | null;
 }
 
-export default function TrackCard({ song, onPlay, onUpdate, onDelete, isManageMode }: TrackCardProps) {
+export default function TrackCard({ song, onPlay, onUpdate, onDelete, isManageMode, userEmail }: TrackCardProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
 
+  const isAdmin = userEmail === 'mostafaerror787@gmail.com';
+
   const handleToggleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!isAdmin) return; // Only admin can update shared song state
+    
     setIsLiking(true);
     try {
       const newStatus = !song.isLiked;
@@ -82,6 +87,7 @@ export default function TrackCard({ song, onPlay, onUpdate, onDelete, isManageMo
             alt={song.title} 
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 z-10"
             referrerPolicy="no-referrer"
+            crossOrigin="anonymous"
           />
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px] z-20">
             <motion.div 
@@ -94,26 +100,30 @@ export default function TrackCard({ song, onPlay, onUpdate, onDelete, isManageMo
           </div>
 
           <div className={`absolute top-3 right-3 flex flex-col gap-2 transition-opacity z-30 ${isManageMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-            <motion.button 
-              whileTap={{ scale: 0.9 }}
-              onClick={handleToggleLike}
-              disabled={isLiking}
-              className={`p-2 backdrop-blur-md rounded-xl transition-all pointer-events-auto ${song.isLiked ? 'bg-red-500/10 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.1)]' : 'bg-black/50 text-white hover:text-red-500'}`}
-            >
-              <Heart className="w-3.5 h-3.5" fill={song.isLiked ? 'currentColor' : 'transparent'} />
-            </motion.button>
+            {isAdmin && (
+              <motion.button 
+                whileTap={{ scale: 0.9 }}
+                onClick={handleToggleLike}
+                disabled={isLiking}
+                className={`p-2 backdrop-blur-md rounded-xl transition-all pointer-events-auto ${song.isLiked ? 'bg-red-500/10 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.1)]' : 'bg-black/50 text-white hover:text-red-500'}`}
+              >
+                <Heart className="w-3.5 h-3.5" fill={song.isLiked ? 'currentColor' : 'transparent'} />
+              </motion.button>
+            )}
             
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsEditOpen(true);
-              }}
-              className={`p-2 bg-black/50 backdrop-blur-md rounded-xl text-white hover:bg-brand transition-all pointer-events-auto ${isManageMode ? 'hidden' : ''}`}
-            >
-              <Edit2 className="w-3.5 h-3.5" />
-            </button>
+            {isAdmin && (
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditOpen(true);
+                }}
+                className={`p-2 bg-black/50 backdrop-blur-md rounded-xl text-white hover:bg-brand transition-all pointer-events-auto ${isManageMode ? 'hidden' : ''}`}
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+              </button>
+            )}
             
-            {isManageMode && (
+            {isAdmin && isManageMode && (
               <button 
                 onClick={handleDelete}
                 disabled={isDeleting}
