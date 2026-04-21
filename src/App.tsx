@@ -164,7 +164,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex bg-black min-h-screen text-slate-100 font-sans selection:bg-blue-500/30 selection:text-white overflow-hidden">
+    <div className="flex bg-black min-h-screen text-slate-100 font-sans selection:bg-brand/30 selection:text-white overflow-hidden">
       <Sidebar 
         isOpen={isSidebarOpen} 
         toggle={() => setIsSidebarOpen(false)} 
@@ -175,11 +175,13 @@ export default function App() {
       <main 
         className="flex-1 overflow-y-auto h-screen pb-32 relative z-10 custom-scrollbar transition-colors duration-1000"
         style={{ 
-          background: `radial-gradient(circle at 50% 0%, rgba(var(--brand-color-rgb), 0.15) 0%, rgba(0,0,0,1) 50%), #000` 
+          background: `radial-gradient(circle at 50% 0%, rgba(var(--brand-color-rgb), 0.4) 0%, rgba(0,0,0,1) 60%), #000` 
         }}
       >
         {/* Header */}
-        <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-md px-8 py-4 flex items-center justify-between border-b border-slate-900">
+        <header className="sticky top-0 z-40 backdrop-blur-md px-8 py-4 flex items-center justify-between border-b border-white/5 transition-colors duration-1000"
+          style={{ backgroundColor: `rgba(var(--brand-color-rgb), 0.05)` }}
+        >
           <div className="flex items-center gap-6 w-full max-w-2xl">
             {!isSidebarOpen && (
               <button 

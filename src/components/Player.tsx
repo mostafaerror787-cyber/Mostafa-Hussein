@@ -191,7 +191,8 @@ export default function Player({ currentSong, onDelete, onNext, onPrevious }: Pl
             <div className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-12 lg:gap-24 relative z-10">
               <motion.div 
                 layoutId="player-cover"
-                className="w-full max-w-sm aspect-square rounded-[3rem] overflow-hidden shadow-2xl shadow-black/50 border border-white/5"
+                onClick={() => setIsExpanded(false)}
+                className="w-full max-w-sm aspect-square rounded-[3rem] overflow-hidden shadow-2xl shadow-black/50 border border-white/5 cursor-pointer hover:scale-[1.02] transition-transform"
               >
                 <img 
                   src={currentSong.coverUrl || undefined} 
