@@ -8,6 +8,7 @@ interface AwtarDB extends DBSchema {
       title: string;
       artist: string;
       audioData: Blob | File;
+      audioUrl?: string;
       coverUrl: string;
       duration: string;
       genre: string;

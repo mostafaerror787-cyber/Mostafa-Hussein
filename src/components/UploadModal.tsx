@@ -1,8 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { Upload, X, Music, CheckCircle2, AlertCircle, Link as LinkIcon, Search, DownloadCloud, Youtube } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { db, auth } from '../lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db, auth, storage } from '../lib/firebase';
+import { collection, addDoc, serverTimestamp, updateDoc, doc as firestoreDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { saveSongLocally } from '../lib/db';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -80,6 +81,11 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
       if (!response.ok) throw new Error('Could not access the original audio file');
       const audioBlob = await response.blob();
 
+      // Upload to Firebase Storage for cloud persistence
+      const storageRef = ref(storage, `songs/${auth.currentUser.uid}/${Date.now()}-${song.title}.mp3`);
+      const uploadResult = await uploadBytes(storageRef, audioBlob);
+      const audioUrl = await getDownloadURL(uploadResult.ref);
+
       const songData = {
         title: song.title,
         artist: song.artist,
@@ -87,6 +93,7 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
         duration: song.duration || '4:10',
         genre: activeTab === 'youtube' ? 'YouTube' : 'Web Link',
         coverUrl: song.coverUrl,
+        audioUrl: audioUrl,
         createdAt: serverTimestamp()
       };
 
@@ -99,6 +106,7 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
         artist: song.artist,
         audioData: audioBlob,
         coverUrl: song.coverUrl,
+        audioUrl: audioUrl,
         duration: song.duration || '4:10',
         genre: songData.genre,
         ownerId: auth.currentUser.uid
@@ -127,6 +135,12 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
 
     try {
       if (!auth.currentUser) throw new Error('You must be signed in first');
+
+      // Upload to Firebase Storage
+      const storageRef = ref(storage, `songs/${auth.currentUser.uid}/${Date.now()}-${file.name}`);
+      const uploadResult = await uploadBytes(storageRef, file);
+      const audioUrl = await getDownloadURL(uploadResult.ref);
+
       const songMetadata = {
         title: file.name.replace(/\.[^/.]+$/, ""),
         artist: auth.currentUser.displayName || 'Unknown Artist',
@@ -134,6 +148,7 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
         duration: '3:30',
         genre: 'Local Upload',
         coverUrl: `https://picsum.photos/seed/${file.name}/400/400`,
+        audioUrl: audioUrl,
         createdAt: serverTimestamp()
       };
       const docRef = await addDoc(collection(db, 'songs'), songMetadata);
@@ -143,6 +158,7 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
         artist: songMetadata.artist,
         audioData: file,
         coverUrl: songMetadata.coverUrl,
+        audioUrl: audioUrl,
         duration: songMetadata.duration,
         genre: songMetadata.genre,
         ownerId: auth.currentUser.uid

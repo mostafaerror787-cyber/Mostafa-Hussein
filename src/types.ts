@@ -7,6 +7,7 @@ export interface Song {
   genre: string;
   ownerId?: string;
   isLiked?: boolean;
+  audioUrl?: string;
   createdAt?: any;
 }
 

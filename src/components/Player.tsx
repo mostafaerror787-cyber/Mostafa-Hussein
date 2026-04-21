@@ -85,6 +85,27 @@ export default function Player({ currentSong, onDelete, onNext, onPrevious }: Pl
           objectUrl = URL.createObjectURL(localSong.audioData);
           setAudioUrl(objectUrl);
           setIsPlaying(true);
+        } else if (currentSong.audioUrl) {
+          // 2. Fallback to Cloud Storage URL if local is missing
+          setAudioUrl(currentSong.audioUrl);
+          setIsPlaying(true);
+          
+          // Optional: Fetch and cache in background for offline use
+          fetch(currentSong.audioUrl)
+            .then(res => res.blob())
+            .then(blob => {
+              saveSongLocally({
+                id: currentSong.id,
+                title: currentSong.title,
+                artist: currentSong.artist,
+                audioData: blob,
+                coverUrl: currentSong.coverUrl,
+                audioUrl: currentSong.audioUrl,
+                duration: currentSong.duration,
+                genre: currentSong.genre,
+                ownerId: currentSong.ownerId
+              });
+            }).catch(err => console.warn('Cache failed:', err));
         } else {
           setAudioUrl(null);
           setError('Audio file not found in local library');
