@@ -6,12 +6,13 @@ import EditModal from './EditModal';
 
 interface PlayerProps {
   currentSong: Song | null;
+  onUpdate: () => void;
   onDelete: () => void;
   onNext?: () => void;
   onPrevious?: () => void;
 }
 
-export default function Player({ currentSong, onDelete, onNext, onPrevious }: PlayerProps) {
+export default function Player({ currentSong, onUpdate, onDelete, onNext, onPrevious }: PlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('off');
   const [progress, setProgress] = useState(0);
@@ -70,8 +71,7 @@ export default function Player({ currentSong, onDelete, onNext, onPrevious }: Pl
       });
 
       if (res.ok) {
-        // We might want to trigger a refresh in App.tsx or update local state
-        // For now, let's just assume the parent handles the update if needed
+        onUpdate();
       }
     } catch (err) {
       console.error('Like toggle failed:', err);
@@ -98,8 +98,13 @@ export default function Player({ currentSong, onDelete, onNext, onPrevious }: Pl
           
           let playUrl = currentSong.audioUrl;
           
-          // Use proxy for external direct links to bypass CORS
-          const isLocal = currentSong.audioUrl.startsWith('/uploads/') || currentSong.audioUrl.startsWith('http://localhost') || currentSong.audioUrl.startsWith('https://ais-');
+          // Detect if the URL is local (relative path or matches current domain)
+          const isLocal = 
+            currentSong.audioUrl.startsWith('/') || 
+            currentSong.audioUrl.startsWith(window.location.origin) ||
+            currentSong.audioUrl.includes('localhost') || 
+            currentSong.audioUrl.includes('ais-');
+
           if (!isLocal && (currentSong.audioUrl.startsWith('http://') || currentSong.audioUrl.startsWith('https://'))) {
             console.log("Using proxy for external stream:", playUrl);
             playUrl = `/api/download?url=${encodeURIComponent(playUrl)}`;
@@ -461,7 +466,7 @@ export default function Player({ currentSong, onDelete, onNext, onPrevious }: Pl
         song={currentSong} 
         isOpen={isEditOpen} 
         onClose={() => setIsEditOpen(false)} 
-        onUpdate={() => {}} // snapshot handles it
+        onUpdate={onUpdate}
         onDelete={onDelete}
       />
     </>

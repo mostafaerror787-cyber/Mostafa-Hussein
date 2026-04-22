@@ -58,11 +58,12 @@ export default function App() {
       const res = await fetch('/api/songs');
       if (!res.ok) throw new Error('Backend unreachable');
       const data = await res.json();
-      // Merge with initial songs to ensure they are always present
-      const combined = [...INITIAL_SONGS];
       
-      // Add any new songs from DB that aren't already in INITIAL_SONGS
-      data.forEach((s: Song) => {
+      // Use server data as truth, falling back to INITIAL_SONGS for missing IDs
+      const combined = [...data];
+      
+      // Add any initial songs that aren't on the server yet
+      INITIAL_SONGS.forEach((s: Song) => {
         if (!combined.find(c => c.id === s.id)) {
           combined.push(s);
         }
@@ -342,6 +343,7 @@ export default function App() {
         {currentSong && (
           <Player 
             currentSong={currentSong} 
+            onUpdate={() => fetchSongs()}
             onNext={handleNext}
             onPrevious={handlePrevious}
             onDelete={() => handleRemoveSong(currentSong.id)}
