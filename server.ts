@@ -9,16 +9,15 @@ import fs from "fs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Ensure directories exist
-const UPLOADS_DIR = path.join(process.cwd(), "uploads");
-const DATA_DIR = path.join(process.cwd(), "data");
-const DB_PATH = path.join(DATA_DIR, "db.json");
+  // Ensure directories exist
+  const UPLOADS_DIR = path.join(process.cwd(), "uploads");
+  const AUDIO_DIR = path.join(process.cwd(), "public", "audio");
+  const DATA_DIR = path.join(process.cwd(), "data");
+  const DB_PATH = path.join(DATA_DIR, "db.json");
 
-if (!fs.existsSync(UPLOADS_DIR)) {
-  console.log(`[SERVER] Creating uploads directory at: ${UPLOADS_DIR}`);
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  if (!fs.existsSync(AUDIO_DIR)) fs.mkdirSync(AUDIO_DIR, { recursive: true });
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, JSON.stringify({ songs: [] }));
 
 function getDb() {

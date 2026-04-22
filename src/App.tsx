@@ -4,6 +4,7 @@ import Player from './components/Player';
 import TrackCard from './components/TrackCard';
 import UploadModal from './components/UploadModal';
 import { Song } from './types';
+import { INITIAL_SONGS } from './data/songs';
 import { Plus, LogIn, Search as SearchIcon, Wifi, WifiOff, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -55,10 +56,22 @@ export default function App() {
   const fetchSongs = async () => {
     try {
       const res = await fetch('/api/songs');
+      if (!res.ok) throw new Error('Backend unreachable');
       const data = await res.json();
-      setSongs(data);
+      // Merge with initial songs to ensure they are always present
+      const combined = [...INITIAL_SONGS];
+      
+      // Add any new songs from DB that aren't already in INITIAL_SONGS
+      data.forEach((s: Song) => {
+        if (!combined.find(c => c.id === s.id)) {
+          combined.push(s);
+        }
+      });
+      
+      setSongs(combined);
     } catch (err) {
-      console.error("Failed to fetch songs:", err);
+      console.warn("Using static fallback songs:", err);
+      setSongs(INITIAL_SONGS);
     } finally {
       setLoading(false);
     }
