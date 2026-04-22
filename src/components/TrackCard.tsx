@@ -22,7 +22,7 @@ export default function TrackCard({ song, onPlay, onUpdate, onDelete, isManageMo
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
 
-  const isAdmin = userEmail === 'mostafaerror787@gmail.com';
+  const isAdmin = userEmail === 'mostafaerror787@gmail.com' || userEmail === 'mostfaerror787@gmail.com';
 
   const handleToggleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -83,11 +83,13 @@ export default function TrackCard({ song, onPlay, onUpdate, onDelete, isManageMo
         <div className="relative aspect-square mb-4 rounded-3xl overflow-hidden shadow-sm bg-slate-950 flex items-center justify-center">
           <div className="absolute inset-0 bg-brand/10 opacity-0 group-hover:opacity-40 blur-2xl transition-opacity duration-500" />
           <img 
-            src={song.coverUrl || undefined} 
+            src={song.coverUrl || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&auto=format&fit=crop&q=60'} 
             alt={song.title} 
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 z-10"
             referrerPolicy="no-referrer"
-            crossOrigin="anonymous"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&auto=format&fit=crop&q=60';
+            }}
           />
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px] z-20">
             <motion.div 

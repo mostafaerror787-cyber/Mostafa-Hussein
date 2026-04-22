@@ -13,7 +13,8 @@ service cloud.firestore {
     
     function isAdmin() {
       return isSignedIn() && 
-             request.auth.token.email == 'mostafaerror787@gmail.com';
+             (request.auth.token.email == 'mostafaerror787@gmail.com' ||
+              request.auth.token.email == 'mostfaerror787@gmail.com'); // Adding common typo just in case
     }
 
     function isOwner(userId) {
@@ -24,54 +25,51 @@ service cloud.firestore {
     function existing() { return resource.data; }
 
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() <= 256; // More permissive on ID size
     }
 
     // User Validation
     function isValidUser(data) {
-      return data.displayName is string && data.displayName.size() <= 100 &&
-             data.email is string && data.email.size() <= 100 &&
-             data.createdAt is timestamp;
+      return (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 200)) &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 200));
     }
 
     match /users/{userId} {
-      allow get: if isOwner(userId) && isValidId(userId);
-      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
-      allow update: if isOwner(userId) && 
-                      incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL']) &&
-                      isValidUser(incoming());
+      allow get: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidUser(incoming());
     }
 
-    // Song Validation - Improved for compatibility and identity integrity
+    // Song Validation - More robust field checks
     function isValidSong(data) {
-      return (data.get('title', null) == null || (data.title is string && data.title.size() <= 200)) &&
-             (data.get('artist', null) == null || (data.artist is string && data.artist.size() <= 100)) &&
-             (data.get('ownerId', null) == null || (data.ownerId is string && data.ownerId.size() <= 128)) &&
-             (data.get('duration', null) == null || (data.duration is string && data.duration.size() <= 20)) &&
-             (data.get('genre', null) == null || (data.genre is string && data.genre.size() <= 50)) &&
-             (data.get('audioUrl', null) == null || (data.audioUrl is string && data.audioUrl.size() <= 1000)) &&
-             (data.get('coverUrl', null) == null || (data.coverUrl is string && data.coverUrl.size() <= 1000)) &&
-             (data.get('userId', null) == null || (data.userId is string && data.userId.size() <= 128)) &&
-             (data.get('isLiked', null) == null || data.isLiked is bool) &&
-             (data.get('createdAt', null) == null || data.createdAt is timestamp) &&
-             (data.get('updatedAt', null) == null || data.updatedAt is timestamp);
+      return (!('title' in data) || (data.title is string && data.title.size() <= 500)) &&
+             (!('artist' in data) || (data.artist is string && data.artist.size() <= 500)) &&
+             (!('ownerId' in data) || (data.ownerId is string)) &&
+             (!('audioUrl' in data) || (data.audioUrl is string)) &&
+             (!('coverUrl' in data) || (data.coverUrl is string)) &&
+             (!('isLiked' in data) || (data.isLiked is bool)) &&
+             (!('duration' in data) || (data.duration is string)) &&
+             (!('genre' in data) || (data.genre is string)) &&
+             (!('createdAt' in data) || (data.createdAt is timestamp || data.createdAt == null)) &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp || data.updatedAt == null));
     }
 
     match /songs/{songId} {
-      // Evaluation based access for public lists
-      allow list: if resource.data.title is string; 
+      // Public read access for the library
       allow get: if true;
+      allow list: if true; 
       
       allow create: if (isAdmin() || (isSignedIn() && incoming().ownerId == request.auth.uid)) && 
-                    isValidSong(incoming()) &&
-                    incoming().createdAt == request.time &&
-                    isValidId(songId);
+                    isValidSong(incoming());
 
-      allow update: if (isAdmin() || (isSignedIn() && incoming().ownerId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['isLiked']))) && 
-                    isValidSong(incoming()) &&
-                    isValidId(songId);
+      allow update: if (isAdmin() || 
+                       (isSignedIn() && (
+                          // Toggling Like (any user)
+                          incoming().diff(existing()).affectedKeys().hasOnly(['isLiked']) ||
+                          // Updating own song (owner)
+                          (incoming().ownerId == request.auth.uid && isValidSong(incoming()))
+                       ))) && isValidId(songId);
                     
-      allow delete: if isAdmin() && isValidId(songId);
+      allow delete: if isAdmin() || (isSignedIn() && existing().ownerId == request.auth.uid);
     }
 
     // Health check

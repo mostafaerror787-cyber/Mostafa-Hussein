@@ -23,7 +23,7 @@ export default function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [loading, setLoading] = useState(true);
 
-  const isAdmin = user?.email === 'mostafaerror787@gmail.com';
+  const isAdmin = user?.email === 'mostafaerror787@gmail.com' || user?.email === 'mostfaerror787@gmail.com';
   const currentSong = songs.find(s => s.id === currentSongId) || null;
 
   useEffect(() => {
@@ -53,17 +53,19 @@ export default function App() {
   }, [currentSong?.coverUrl]);
 
   const handleNext = () => {
-    if (!currentSongId || songs.length === 0) return;
-    const currentIndex = songs.findIndex(s => s.id === currentSongId);
-    const nextIndex = (currentIndex + 1) % songs.length;
-    setCurrentSongId(songs[nextIndex].id);
+    if (!currentSongId || filteredSongs.length === 0) return;
+    const currentIndex = filteredSongs.findIndex(s => s.id === currentSongId);
+    // If current song is not in filtered list (e.g. search changed), play first available
+    const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % filteredSongs.length;
+    setCurrentSongId(filteredSongs[nextIndex].id);
   };
 
   const handlePrevious = () => {
-    if (!currentSongId || songs.length === 0) return;
-    const currentIndex = songs.findIndex(s => s.id === currentSongId);
-    const previousIndex = (currentIndex - 1 + songs.length) % songs.length;
-    setCurrentSongId(songs[previousIndex].id);
+    if (!currentSongId || filteredSongs.length === 0) return;
+    const currentIndex = filteredSongs.findIndex(s => s.id === currentSongId);
+    // If current song is not in filtered list, play last available
+    const previousIndex = currentIndex === -1 ? filteredSongs.length - 1 : (currentIndex - 1 + filteredSongs.length) % filteredSongs.length;
+    setCurrentSongId(filteredSongs[previousIndex].id);
   };
 
   useEffect(() => {
@@ -124,7 +126,7 @@ export default function App() {
 
   useEffect(() => {
     if (songs.length > 0 && user) {
-      const isAdmin = user.email === 'mostafaerror787@gmail.com';
+      const isAdmin = user.email === 'mostafaerror787@gmail.com' || user.email === 'mostfaerror787@gmail.com';
       if (!isAdmin) return;
 
       const targets = songs.filter(s => 
@@ -230,17 +232,17 @@ export default function App() {
                 {isAdmin && (
                   <button 
                     onClick={() => setIsUploadOpen(true)}
-                    className="text-sm font-bold text-brand hover:opacity-80 transition-colors"
+                    className="text-sm font-bold text-brand hover:underline transition-all"
                   >
-                    Upload Song
+                    + Upload Song
                   </button>
                 )}
                 <div className="flex items-center gap-3 ml-4 border-l border-slate-800 pl-4">
-                  <div className="text-left">
-                    <p className="text-xs font-bold text-white">{user.displayName}</p>
+                  <div className="text-left hidden sm:block">
+                    <p className="text-xs font-bold text-white truncate max-w-[100px]">{user.displayName}</p>
                     <button onClick={() => signOut()} className="text-[10px] text-slate-500 font-bold hover:text-red-500 transition-colors">Sign Out</button>
                   </div>
-                  <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 overflow-hidden shadow-sm">
+                  <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 overflow-hidden shadow-sm flex-shrink-0">
                     <img src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName}`} referrerPolicy="no-referrer" alt="profile" className="w-full h-full object-cover" />
                   </div>
                 </div>

@@ -23,9 +23,12 @@
         "duration": { "type": "string" },
         "genre": { "type": "string" },
         "coverUrl": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "audioUrl": { "type": "string" },
+        "isLiked": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["title", "artist", "ownerId", "createdAt"]
+      "required": ["title", "artist", "ownerId", "createdAt", "audioUrl"]
     }
   },
   "firestore": {

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, Camera, Music, User } from 'lucide-react';
+import { X, Save, Trash2, Camera, Music, User, Link as LinkIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Song } from '../types';
 import { doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { db, storage, auth } from '../lib/firebase';
 import { deleteLocalSong, saveSongLocally, getDB } from '../lib/db';
 
 interface EditModalProps {
@@ -18,15 +19,68 @@ export default function EditModal({ song, isOpen, onClose, onUpdate, onDelete }:
   const [title, setTitle] = useState(song.title);
   const [artist, setArtist] = useState(song.artist);
   const [coverUrl, setCoverUrl] = useState(song.coverUrl);
+  const [audioUrl, setAudioUrl] = useState(song.audioUrl || '');
+  const [genre, setGenre] = useState(song.genre || '');
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [statusMessage, setStatusMessage] = useState('');
 
-  // Sync state when song prop changes
+  const handleAudioReplace = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!auth.currentUser) return;
+
+    setIsUploading(true);
+    setUploadProgress(0);
+    setStatusMessage('Preparing upload...');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('userId', auth.currentUser.uid);
+
+      setStatusMessage('Uploading to server...');
+      setUploadProgress(50);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Replacement failed');
+      }
+
+      const result = await response.json();
+      const downloadUrl = result.url;
+
+      setUploadProgress(100);
+      setAudioUrl(downloadUrl);
+      setGenre('Local Update');
+      setStatusMessage('Update complete!');
+    } catch (err: any) {
+      console.error('Replacement upload failed:', err);
+      alert(`Upload failed: ${err.message}`);
+    } finally {
+      setTimeout(() => {
+        setIsUploading(false);
+        setUploadProgress(0);
+        setStatusMessage('');
+      }, 1000);
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
       setTitle(song.title);
       setArtist(song.artist);
       setCoverUrl(song.coverUrl);
+      setAudioUrl(song.audioUrl || '');
+      setGenre(song.genre || '');
     }
   }, [song.id, isOpen]);
 
@@ -39,10 +93,12 @@ export default function EditModal({ song, isOpen, onClose, onUpdate, onDelete }:
         title,
         artist,
         coverUrl,
+        audioUrl,
+        genre,
         updatedAt: serverTimestamp()
       });
 
-      // 2. Update IndexedDB (Keep the same audioData)
+      // 2. Update IndexedDB (Keep the same audioData if we haven't changed the URL to something that requires streaming)
       const idb = await getDB();
       const localSong = await idb.get('songs', song.id);
       if (localSong) {
@@ -50,7 +106,9 @@ export default function EditModal({ song, isOpen, onClose, onUpdate, onDelete }:
           ...localSong,
           title,
           artist,
-          coverUrl
+          coverUrl,
+          audioUrl,
+          genre
         });
       }
 
@@ -105,7 +163,42 @@ export default function EditModal({ song, isOpen, onClose, onUpdate, onDelete }:
               </button>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+              {/* Replace Audio File Section */}
+              <div className="p-5 bg-slate-950 rounded-3xl border border-slate-800 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Music className="w-4 h-4 text-brand" />
+                    <span className="text-[10px] font-bold text-white uppercase tracking-wider">Replace Audio Source</span>
+                  </div>
+                  {isUploading && (
+                    <span className="text-[9px] font-bold text-brand animate-pulse">{statusMessage}</span>
+                  )}
+                </div>
+
+                {isUploading ? (
+                  <div className="h-10 bg-slate-900 rounded-xl flex items-center px-4 relative overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${uploadProgress}%` }}
+                      className="absolute inset-0 bg-brand/20 border-r border-brand/50"
+                    />
+                    <span className="relative z-10 text-[10px] font-medium text-slate-400">Uploading... {uploadProgress}%</span>
+                  </div>
+                ) : (
+                  <label className="flex items-center justify-center gap-3 w-full py-4 bg-slate-900 border-2 border-dashed border-slate-800 rounded-2xl cursor-pointer hover:border-brand/40 hover:bg-slate-800/40 transition-all group">
+                    <div className="p-2 bg-slate-800 rounded-lg group-hover:bg-brand/20 transition-colors">
+                      <Save className="w-4 h-4 text-slate-500 group-hover:text-brand" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs font-bold text-slate-300 group-hover:text-white">Replace Audio File</p>
+                      <p className="text-[9px] text-slate-600">Select new MP3 or WAV file</p>
+                    </div>
+                    <input type="file" accept="audio/*" className="hidden" onChange={handleAudioReplace} />
+                  </label>
+                )}
+              </div>
+
               {/* Cover Preview & Edit */}
               <div className="flex flex-col items-center gap-4">
                 <div className="w-32 h-32 rounded-3xl overflow-hidden bg-slate-950 border border-slate-800 relative group">
@@ -153,6 +246,19 @@ export default function EditModal({ song, isOpen, onClose, onUpdate, onDelete }:
                       className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 pl-14 text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-brand/20 transition-all"
                     />
                     <User className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-600" />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase tracking-widest text-slate-500 font-bold ml-1">Audio Source URL</label>
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      value={audioUrl}
+                      onChange={(e) => setAudioUrl(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 px-6 pl-14 text-sm font-medium text-brand focus:outline-none focus:ring-2 focus:ring-brand/20 transition-all"
+                    />
+                    <LinkIcon className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-brand" />
                   </div>
                 </div>
               </div>

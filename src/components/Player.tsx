@@ -32,19 +32,31 @@ export default function Player({ currentSong, onDelete, onNext, onPrevious }: Pl
     if (!currentSong?.coverUrl) return;
 
     const img = new Image();
-    img.crossOrigin = "Anonymous";
+    // Only use Anonymous if we are sure we need it and it's allowed.
+    // For general thumb URLs, it's safer to avoid it to prevent load failures.
+    // img.crossOrigin = "Anonymous"; 
     img.src = currentSong.coverUrl;
 
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      canvas.width = 1;
-      canvas.height = 1;
-      ctx.drawImage(img, 0, 0, 1, 1);
-      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-      // We want a vibrant but not too bright version for the background
-      setDominantColor(`rgba(${r}, ${g}, ${b}, 1)`);
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        canvas.width = 1;
+        canvas.height = 1;
+        ctx.drawImage(img, 0, 0, 1, 1);
+        const data = ctx.getImageData(0, 0, 1, 1).data;
+        if (data && data.length >= 3) {
+          const [r, g, b] = data;
+          setDominantColor(`rgba(${r}, ${g}, ${b}, 1)`);
+        }
+      } catch (e) {
+        console.warn('Could not extract dominant color (CORS likely):', e);
+        setDominantColor('rgba(30, 41, 59, 1)'); // Fallback
+      }
+    };
+    img.onerror = () => {
+      setDominantColor('rgba(30, 41, 59, 1)');
     };
   }, [currentSong?.coverUrl]);
 
@@ -93,12 +105,22 @@ export default function Player({ currentSong, onDelete, onNext, onPrevious }: Pl
           setIsPlaying(true);
         } else if (currentSong.audioUrl && (currentSong.audioUrl.startsWith('http') || currentSong.audioUrl.startsWith('https'))) {
           // 2. Fallback to Cloud Storage URL if local is missing
-          console.log("Playing from cloud URL:", currentSong.title);
-          setAudioUrl(currentSong.audioUrl);
+          console.log("Playing from URL:", currentSong.title);
+          
+          let playUrl = currentSong.audioUrl;
+          
+          // Use proxy for direct links to bypass CORS if it's not from our own Firebase Storage
+          const isFirebase = currentSong.audioUrl.includes('firebasestorage.googleapis.com');
+          if (!isFirebase) {
+            console.log("Using proxy for external stream:", playUrl);
+            playUrl = `/api/download?url=${encodeURIComponent(playUrl)}`;
+          }
+          
+          setAudioUrl(playUrl);
           setIsPlaying(true);
           
-          // Background fetch to cache for offline use
-          if (navigator.onLine) {
+          // Background fetch to cache for offline use (only if it's not a direct link that we might want to save)
+          if (navigator.onLine && isFirebase) {
             fetch(currentSong.audioUrl, { mode: 'cors' })
               .then(res => {
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -153,12 +175,20 @@ export default function Player({ currentSong, onDelete, onNext, onPrevious }: Pl
     }
   }, [isPlaying, audioUrl]);
 
+  const [isShuffle, setIsShuffle] = useState(false);
+
   const cycleRepeatMode = () => {
     setRepeatMode(prev => {
       if (prev === 'off') return 'all';
       if (prev === 'all') return 'one';
       return 'off';
     });
+  };
+
+  const getRepeatTitle = () => {
+    if (repeatMode === 'off') return 'Enable Repeat All';
+    if (repeatMode === 'all') return 'Enable Repeat One';
+    return 'Disable Repeat';
   };
 
   const handleEnded = () => {
@@ -280,7 +310,11 @@ export default function Player({ currentSong, onDelete, onNext, onPrevious }: Pl
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <button className="text-slate-600 hover:text-slate-400 transition-colors">
+                    <button 
+                      onClick={() => setIsShuffle(!isShuffle)}
+                      title={isShuffle ? 'Disable Shuffle' : 'Enable Shuffle'}
+                      className={`transition-colors ${isShuffle ? 'text-brand' : 'text-slate-600 hover:text-slate-400'}`}
+                    >
                       <Shuffle className="w-6 h-6" />
                     </button>
                     <div className="flex items-center gap-10">
@@ -305,6 +339,7 @@ export default function Player({ currentSong, onDelete, onNext, onPrevious }: Pl
                     </div>
                     <button 
                       onClick={cycleRepeatMode}
+                      title={getRepeatTitle()}
                       className={`transition-colors ${repeatMode !== 'off' ? 'text-brand' : 'text-slate-600 hover:text-slate-400'}`}
                     >
                       {repeatMode === 'one' ? <Repeat1 className="w-6 h-6" /> : <Repeat className="w-6 h-6" />}
@@ -321,7 +356,6 @@ export default function Player({ currentSong, onDelete, onNext, onPrevious }: Pl
         <audio 
           ref={audioRef} 
           src={audioUrl || undefined} 
-          crossOrigin="anonymous"
           onTimeUpdate={onTimeUpdate}
           onLoadedMetadata={onTimeUpdate}
           onEnded={handleEnded}
@@ -386,7 +420,11 @@ export default function Player({ currentSong, onDelete, onNext, onPrevious }: Pl
         {/* Controls */}
         <div className="flex-1 flex flex-col items-center gap-2 max-w-2xl px-8">
           <div className="flex items-center gap-8">
-            <button className="text-slate-600 hover:text-slate-400 transition-colors">
+            <button 
+              onClick={() => setIsShuffle(!isShuffle)}
+              title={isShuffle ? 'Disable Shuffle' : 'Enable Shuffle'}
+              className={`transition-colors ${isShuffle ? 'text-brand' : 'text-slate-600 hover:text-slate-400'}`}
+            >
               <Shuffle className="w-4 h-4" />
             </button>
             <button 
@@ -409,6 +447,7 @@ export default function Player({ currentSong, onDelete, onNext, onPrevious }: Pl
             </button>
             <button 
               onClick={cycleRepeatMode}
+              title={getRepeatTitle()}
               className={`transition-colors ${repeatMode !== 'off' ? 'text-brand' : 'text-slate-600 hover:text-slate-400'}`}
             >
               {repeatMode === 'one' ? <Repeat1 className="w-4 h-4" /> : <Repeat className="w-4 h-4" />}
