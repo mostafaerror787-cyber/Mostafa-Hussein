@@ -26,6 +26,18 @@ export const INITIAL_SONGS: Song[] = [
     isLiked: false
   },
   {
+    id: "song-wegz-klam-forsane",
+    createdAt: "2026-04-22T23:43:50.822Z",
+    title: "Kalam Forsane",
+    artist: "Wegz & Mohamed Mounir",
+    ownerId: "system",
+    duration: "3:30",
+    genre: "Rap",
+    coverUrl: "https://i.scdn.co/image/ab67616d0000b273b95319571afcb384375d70be",
+    audioUrl: "/audio/wegz-mohamed-mounir-klam-forsane.mp3",
+    isLiked: false
+  },
+  {
     id: "song-lege-cy-alwkt-aldaya",
     createdAt: "2026-04-22T23:01:54.592Z",
     title: "Al-Wkt Al-Daya",
