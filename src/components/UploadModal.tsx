@@ -49,7 +49,14 @@ export default function UploadModal({ isOpen, onClose, onUploadSuccess }: { isOp
       });
 
       if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`);
+        let errorMessage = `Upload failed: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.details || errorData.error || errorMessage;
+        } catch (e) {
+          // If response is not JSON
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
