@@ -2,10 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Repeat, Repeat1, Shuffle, Volume2, ListMusic, MonitorSpeaker, Edit2, Heart, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Song, RepeatMode } from '../types';
-import { getDB, saveSongLocally } from '../lib/db';
 import EditModal from './EditModal';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
 
 interface PlayerProps {
   currentSong: Song | null;
@@ -66,13 +63,15 @@ export default function Player({ currentSong, onDelete, onNext, onPrevious }: Pl
     setIsLiking(true);
     try {
       const newStatus = !currentSong.isLiked;
-      const songRef = doc(db, 'songs', currentSong.id);
-      await updateDoc(songRef, { isLiked: newStatus });
+      const res = await fetch(`/api/songs/${currentSong.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isLiked: newStatus })
+      });
 
-      const idb = await getDB();
-      const localSong = await idb.get('songs', currentSong.id);
-      if (localSong) {
-        await saveSongLocally({ ...localSong, isLiked: newStatus });
+      if (res.ok) {
+        // We might want to trigger a refresh in App.tsx or update local state
+        // For now, let's just assume the parent handles the update if needed
       }
     } catch (err) {
       console.error('Like toggle failed:', err);
@@ -94,52 +93,20 @@ export default function Player({ currentSong, onDelete, onNext, onPrevious }: Pl
         setAudioUrl(null);
         setError(null);
 
-        // 1. Check local IndexedDB first
-        const db = await getDB();
-        const localSong = await db.get('songs', currentSong.id);
-        
-        if (localSong && localSong.audioData instanceof Blob) {
-          console.log("Playing from local cache:", currentSong.title);
-          objectUrl = URL.createObjectURL(localSong.audioData);
-          setAudioUrl(objectUrl);
-          setIsPlaying(true);
-        } else if (currentSong.audioUrl && (currentSong.audioUrl.startsWith('http') || currentSong.audioUrl.startsWith('https'))) {
-          // 2. Fallback to Cloud Storage URL if local is missing
+        if (currentSong.audioUrl) {
           console.log("Playing from URL:", currentSong.title);
           
           let playUrl = currentSong.audioUrl;
           
-          // Use proxy for direct links to bypass CORS if it's not from our own Firebase Storage
-          const isFirebase = currentSong.audioUrl.includes('firebasestorage.googleapis.com');
-          if (!isFirebase) {
+          // Use proxy for external direct links to bypass CORS
+          const isLocal = currentSong.audioUrl.startsWith('/uploads/') || currentSong.audioUrl.startsWith('http://localhost') || currentSong.audioUrl.startsWith('https://ais-');
+          if (!isLocal && (currentSong.audioUrl.startsWith('http://') || currentSong.audioUrl.startsWith('https://'))) {
             console.log("Using proxy for external stream:", playUrl);
             playUrl = `/api/download?url=${encodeURIComponent(playUrl)}`;
           }
           
           setAudioUrl(playUrl);
           setIsPlaying(true);
-          
-          // Background fetch to cache for offline use (only if it's not a direct link that we might want to save)
-          if (navigator.onLine && isFirebase) {
-            fetch(currentSong.audioUrl, { mode: 'cors' })
-              .then(res => {
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                return res.blob();
-              })
-              .then(blob => {
-                saveSongLocally({
-                  id: currentSong.id,
-                  title: currentSong.title,
-                  artist: currentSong.artist,
-                  audioData: blob,
-                  coverUrl: currentSong.coverUrl,
-                  audioUrl: currentSong.audioUrl,
-                  duration: currentSong.duration,
-                  genre: currentSong.genre,
-                  ownerId: currentSong.ownerId
-                });
-              }).catch(err => console.warn('Background cache failed:', err));
-          }
         } else {
           setAudioUrl(null);
           setError('No valid audio source found for this track.');

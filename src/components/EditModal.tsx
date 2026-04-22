@@ -2,10 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, Trash2, Camera, Music, User, Link as LinkIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Song } from '../types';
-import { doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { db, storage, auth } from '../lib/firebase';
-import { deleteLocalSong, saveSongLocally, getDB } from '../lib/db';
 
 interface EditModalProps {
   song: Song;
@@ -31,8 +27,6 @@ export default function EditModal({ song, isOpen, onClose, onUpdate, onDelete }:
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!auth.currentUser) return;
-
     setIsUploading(true);
     setUploadProgress(0);
     setStatusMessage('Preparing upload...');
@@ -40,7 +34,6 @@ export default function EditModal({ song, isOpen, onClose, onUpdate, onDelete }:
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('userId', auth.currentUser.uid);
 
       setStatusMessage('Uploading to server...');
       setUploadProgress(50);
@@ -51,8 +44,7 @@ export default function EditModal({ song, isOpen, onClose, onUpdate, onDelete }:
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Replacement failed');
+        throw new Error('Replacement failed');
       }
 
       const result = await response.json();
@@ -87,33 +79,22 @@ export default function EditModal({ song, isOpen, onClose, onUpdate, onDelete }:
   const handleUpdate = async () => {
     setIsLoading(true);
     try {
-      // 1. Update Firestore
-      const songRef = doc(db, 'songs', song.id);
-      await updateDoc(songRef, {
-        title,
-        artist,
-        coverUrl,
-        audioUrl,
-        genre,
-        updatedAt: serverTimestamp()
-      });
-
-      // 2. Update IndexedDB (Keep the same audioData if we haven't changed the URL to something that requires streaming)
-      const idb = await getDB();
-      const localSong = await idb.get('songs', song.id);
-      if (localSong) {
-        await saveSongLocally({
-          ...localSong,
+      const res = await fetch(`/api/songs/${song.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           title,
           artist,
           coverUrl,
           audioUrl,
           genre
-        });
-      }
+        })
+      });
 
-      onUpdate();
-      onClose();
+      if (res.ok) {
+        onUpdate();
+        onClose();
+      }
     } catch (error) {
       console.error('Update failed:', error);
     } finally {
@@ -125,13 +106,11 @@ export default function EditModal({ song, isOpen, onClose, onUpdate, onDelete }:
     if (!window.confirm('Are you sure you want to delete this song?')) return;
     setIsDeleting(true);
     try {
-      // 1. Delete from Firestore
-      await deleteDoc(doc(db, 'songs', song.id));
-      // 2. Delete from IndexedDB
-      await deleteLocalSong(song.id);
-      
-      onDelete();
-      onClose();
+      const res = await fetch(`/api/songs/${song.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        onDelete();
+        onClose();
+      }
     } catch (error) {
       console.error('Delete failed:', error);
     } finally {

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Home, Search, Library, PlusSquare, Heart, Music2, ChevronDown, ChevronRight, LayoutGrid } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 
 interface SidebarItemProps {
   icon: React.ElementType;
@@ -24,86 +24,75 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }: SidebarItemProps) =
   </motion.button>
 );
 
-export default function Sidebar({ isOpen, toggle, isLikedView, onViewChange, userEmail }: { 
-  isOpen: boolean; 
-  toggle: () => void;
-  isLikedView: boolean;
-  onViewChange: (isLiked: boolean) => void;
-  userEmail?: string | null;
+export default function Sidebar({ activeView, onViewChange, onClose }: { 
+  activeView: string;
+  onViewChange: (view: string) => void;
+  onClose: () => void;
 }) {
-  const [isMainOpen, setIsMainOpen] = useState(true);
-  const [isPlaylistsOpen, setIsPlaylistsOpen] = useState(true);
-
-  const isAdmin = userEmail === 'mostafaerror787@gmail.com';
-
+  const isLikedView = activeView === 'liked';
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.aside 
-          initial={{ x: -260 }}
-          animate={{ x: 0 }}
-          exit={{ x: -260 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="w-64 bg-slate-950 border-r border-slate-900 flex flex-col h-screen p-6 gap-8 shadow-sm relative z-50"
-        >
-          <div className="flex items-center justify-between px-2">
-            <div 
-              onClick={() => {
-                onViewChange(false);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className="w-10 h-10 bg-brand rounded-xl flex items-center justify-center shadow-lg shadow-brand/20 cursor-pointer hover:scale-105 transition-transform"
-            >
-              <Music2 className="text-white w-6 h-6" />
+    <motion.aside 
+      initial={{ x: -260 }}
+      animate={{ x: 0 }}
+      exit={{ x: -260 }}
+      transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+      className="w-64 bg-slate-950 border-r border-slate-900 flex flex-col h-screen p-6 gap-8 shadow-sm relative z-50"
+    >
+        <div className="flex items-center justify-between px-2">
+          <div 
+            onClick={() => {
+              onViewChange('library');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className="w-10 h-10 bg-brand rounded-xl flex items-center justify-center shadow-lg shadow-brand/20 cursor-pointer hover:scale-105 transition-transform"
+          >
+            <Music2 className="text-white w-6 h-6" />
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-900 rounded-xl text-slate-500 hover:text-white transition-colors">
+            <ChevronRight className="w-5 h-5 rotate-180" />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1">
+              <SidebarItem 
+                icon={Home} 
+                label="All Songs" 
+                active={activeView === 'library'} 
+                onClick={() => {
+                  onViewChange('library');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }} 
+              />
+              <SidebarItem icon={Search} label="Search" onClick={() => document.querySelector<HTMLInputElement>('input[placeholder*="Search"]')?.focus()} />
+              <SidebarItem 
+                icon={Library} 
+                label="Song Library" 
+                active={activeView === 'library'}
+                onClick={() => {
+                  onViewChange('library');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }} 
+              />
             </div>
-            <button onClick={toggle} className="p-2 hover:bg-slate-900 rounded-xl text-slate-500 hover:text-white transition-colors">
-              <ChevronRight className="w-5 h-5 rotate-180" />
-            </button>
           </div>
 
-          <div className="flex flex-col gap-6">
-            {/* Main Section */}
-            <div className="flex flex-col gap-2">
-              <div className="flex flex-col gap-1">
-                <SidebarItem 
-                  icon={Home} 
-                  label="All Songs" 
-                  active={!isLikedView} 
-                  onClick={() => {
-                    onViewChange(false);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }} 
-                />
-                <SidebarItem icon={Search} label="Search" onClick={() => document.querySelector<HTMLInputElement>('input[placeholder*="Search"]')?.focus()} />
-                <SidebarItem 
-                  icon={Library} 
-                  label="Song Library" 
-                  onClick={() => {
-                    onViewChange(false);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }} 
-                />
-              </div>
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1">
+              <SidebarItem icon={PlusSquare} label="Create Playlist" onClick={() => alert('Playlist creation coming soon!')} />
+              <SidebarItem 
+                icon={Heart} 
+                label="Liked Songs" 
+                active={activeView === 'liked'}
+                onClick={() => {
+                  onViewChange('liked');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }} 
+              />
             </div>
-
-            {/* Playlists Section */}
-            {userEmail && (
-              <div className="flex flex-col gap-2">
-                <div className="flex flex-col gap-1">
-                  <SidebarItem icon={PlusSquare} label="Create Playlist" onClick={() => alert('Playlist creation coming soon!')} />
-                  <SidebarItem 
-                    icon={Heart} 
-                    label="Liked Songs" 
-                    active={isLikedView}
-                    onClick={() => {
-                      onViewChange(true);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }} 
-                  />
-                </div>
-              </div>
-            )}
           </div>
+        </div>
 
       <div className="mt-auto pt-6 border-t border-slate-900">
         <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800">
@@ -114,8 +103,6 @@ export default function Sidebar({ isOpen, toggle, isLikedView, onViewChange, use
           </button>
         </div>
       </div>
-        </motion.aside>
-      )}
-    </AnimatePresence>
+    </motion.aside>
   );
 }

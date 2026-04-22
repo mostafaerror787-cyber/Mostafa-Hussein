@@ -3,9 +3,6 @@ import { Play, Edit2, Trash2, Heart } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Song } from '../types';
 import EditModal from './EditModal';
-import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import { deleteLocalSong, getDB, saveSongLocally } from '../lib/db';
 
 interface TrackCardProps {
   key?: string | number;
@@ -17,7 +14,7 @@ interface TrackCardProps {
   userEmail?: string | null;
 }
 
-export default function TrackCard({ song, onPlay, onUpdate, onDelete, isManageMode, userEmail }: TrackCardProps) {
+export default function TrackCard({ song, onPlay, onUpdate, onDelete, isManageMode, userEmail, onToggleLike }: TrackCardProps & { onToggleLike?: () => void }) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
@@ -26,26 +23,8 @@ export default function TrackCard({ song, onPlay, onUpdate, onDelete, isManageMo
 
   const handleToggleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!userEmail) return; // Must be signed in to like
-    
-    setIsLiking(true);
-    try {
-      const newStatus = !song.isLiked;
-      
-      // 1. Update Firestore
-      const songRef = doc(db, 'songs', song.id);
-      await updateDoc(songRef, { isLiked: newStatus });
-
-      // 2. Update Local DB
-      const idb = await getDB();
-      const localSong = await idb.get('songs', song.id);
-      if (localSong) {
-        await saveSongLocally({ ...localSong, isLiked: newStatus });
-      }
-    } catch (err) {
-      console.error('Like toggle failed:', err);
-    } finally {
-      setIsLiking(false);
+    if (onToggleLike) {
+      onToggleLike();
     }
   };
 
@@ -53,19 +32,17 @@ export default function TrackCard({ song, onPlay, onUpdate, onDelete, isManageMo
     e.stopPropagation();
     if (!window.confirm(`Delete "${song.title}"?`)) return;
     
-    // Optimistic UI: Remove from list immediately
-    onDelete();
-    
     setIsDeleting(true);
     try {
-      // Background calls
-      await deleteDoc(doc(db, 'songs', song.id));
-      await deleteLocalSong(song.id);
+      const res = await fetch(`/api/songs/${song.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        onDelete();
+      } else {
+        throw new Error('Failed to delete on server');
+      }
     } catch (error: any) {
       console.error('Delete failed:', error);
-      alert(`Delete failed on server: ${error.message || 'Check your connection'}`);
-      // Re-fetching or let the next snapshot naturally restore it if the delete failed
-      onUpdate(); 
+      alert(`Delete failed: ${error.message}`);
     } finally {
       setIsDeleting(false);
     }

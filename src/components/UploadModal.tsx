@@ -1,10 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Upload, X, CheckCircle2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { db, auth, storage } from '../lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, getDownloadURL, uploadBytesResumable } from 'firebase/storage';
-import { saveSongLocally } from '../lib/db';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -12,7 +8,7 @@ interface UploadModalProps {
   onUpload: () => void;
 }
 
-export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
+export default function UploadModal({ isOpen, onClose, onUploadSuccess }: { isOpen: boolean, onClose: () => void, onUploadSuccess: () => void }) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState('');
@@ -24,9 +20,8 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Enforce 20MB limit
-    if (file.size > 20 * 1024 * 1024) {
-      setError('File is too large. Maximum size is 20MB.');
+    if (file.size > 100 * 1024 * 1024) {
+      setError('File is too large. Maximum size is 100MB.');
       return;
     }
 
@@ -34,6 +29,7 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
       setError('Please select a valid audio file');
       return;
     }
+
     setIsUploading(true);
     setUploadProgress(0);
     setStatusMessage('Preparing upload...');
@@ -43,10 +39,9 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('userId', auth.currentUser?.uid || 'anonymous');
 
-      setStatusMessage('Uploading to server...');
-      setUploadProgress(50); // Artificial progress for standard fetch
+      setStatusMessage('Uploading audio file...');
+      setUploadProgress(30);
 
       const response = await fetch('/api/upload', {
         method: 'POST',
@@ -54,73 +49,46 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
       });
 
       if (!response.ok) {
-        let errorMessage = 'Upload failed';
-        try {
-          const contentType = response.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
-            const errorData = await response.json();
-            errorMessage = errorData.error || errorData.details || errorMessage;
-          } else {
-            // Handle HTML or other responses
-            const textContent = await response.text();
-            console.error('Non-JSON error response:', textContent);
-            errorMessage = `Server error (${response.status}): ${textContent.slice(0, 100)}...`;
-          }
-        } catch (parseErr) {
-          errorMessage = `Server error (${response.status}). Could not parse error details.`;
-        }
-        throw new Error(errorMessage);
+        throw new Error(`Upload failed: ${response.statusText}`);
       }
 
       const result = await response.json();
       const audioUrl = result.url;
       
-      setUploadProgress(90);
-      setStatusMessage('Finalizing library entry...');
+      setUploadProgress(70);
+      setStatusMessage('Saving metadata...');
 
       const songMetadata = {
         title: file.name.replace(/\.[^/.]+$/, ""),
-        artist: auth.currentUser?.displayName || 'Guest Contributor',
-        ownerId: auth.currentUser?.uid || 'anonymous',
+        artist: 'Unknown Artist',
+        ownerId: 'anonymous',
         duration: '3:30',
-        genre: 'Public Upload',
+        genre: 'Local Upload',
         coverUrl: `https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400`,
         audioUrl: audioUrl,
-        createdAt: serverTimestamp()
+        isLiked: false
       };
       
-      console.log('Adding document to Firestore...', songMetadata);
-      const docRef = await addDoc(collection(db, 'songs'), songMetadata);
-      console.log('Document added with ID:', docRef.id);
-      setUploadProgress(100);
-
-      await saveSongLocally({
-        id: docRef.id,
-        title: songMetadata.title,
-        artist: songMetadata.artist,
-        audioData: file,
-        coverUrl: songMetadata.coverUrl,
-        audioUrl: audioUrl,
-        duration: songMetadata.duration,
-        genre: songMetadata.genre,
-        ownerId: auth.currentUser?.uid || 'anonymous'
+      const saveResponse = await fetch('/api/songs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(songMetadata)
       });
-      
+
+      if (!saveResponse.ok) {
+        throw new Error('Failed to save song metadata');
+      }
+
+      setUploadProgress(100);
       setIsSuccess(true);
-      onUpload();
+      onUploadSuccess();
       setTimeout(() => {
         onClose();
         setIsSuccess(false);
       }, 1500);
     } catch (err: any) {
-      console.error('Full upload failure details:', err);
-      let msg = err.message || 'An unknown error occurred';
-      if (msg.includes('storage/unauthorized')) {
-        msg = "Storage permission denied. Please verify Firebase Storage rules.";
-      } else if (msg.includes('storage/quota-exceeded')) {
-        msg = "Storage quota exceeded. Try again tomorrow.";
-      }
-      setError(`Upload error: ${msg}`);
+      console.error('Upload failure:', err);
+      setError(`Upload error: ${err.message}`);
     } finally {
       setIsUploading(false);
     }
