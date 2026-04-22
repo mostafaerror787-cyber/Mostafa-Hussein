@@ -58,8 +58,7 @@ service cloud.firestore {
       allow get: if true;
       allow list: if true; 
       
-      allow create: if (isAdmin() || (isSignedIn() && incoming().ownerId == request.auth.uid)) && 
-                    isValidSong(incoming());
+      allow create: if isValidSong(incoming());
 
       allow update: if (isAdmin() || 
                        (isSignedIn() && (

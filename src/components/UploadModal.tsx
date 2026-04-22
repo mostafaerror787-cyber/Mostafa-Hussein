@@ -41,13 +41,9 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
     setIsSuccess(false);
 
     try {
-      if (!auth.currentUser) {
-        throw new Error('You must be signed in to upload files.');
-      }
-
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('userId', auth.currentUser.uid);
+      formData.append('userId', auth.currentUser?.uid || 'anonymous');
 
       setStatusMessage('Uploading to server...');
       setUploadProgress(50); // Artificial progress for standard fetch
@@ -84,10 +80,10 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
 
       const songMetadata = {
         title: file.name.replace(/\.[^/.]+$/, ""),
-        artist: auth.currentUser.displayName || 'Unknown Artist',
-        ownerId: auth.currentUser.uid,
+        artist: auth.currentUser?.displayName || 'Guest Contributor',
+        ownerId: auth.currentUser?.uid || 'anonymous',
         duration: '3:30',
-        genre: 'Local Upload',
+        genre: 'Public Upload',
         coverUrl: `https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400`,
         audioUrl: audioUrl,
         createdAt: serverTimestamp()
@@ -107,7 +103,7 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
         audioUrl: audioUrl,
         duration: songMetadata.duration,
         genre: songMetadata.genre,
-        ownerId: auth.currentUser.uid
+        ownerId: auth.currentUser?.uid || 'anonymous'
       });
       
       setIsSuccess(true);

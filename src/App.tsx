@@ -227,14 +227,15 @@ export default function App() {
               )}
             </div>
 
+            <button 
+              onClick={() => setIsUploadOpen(true)}
+              className="text-sm font-bold text-brand hover:underline transition-all"
+            >
+              + Upload Song
+            </button>
+
             {user ? (
               <>
-                <button 
-                  onClick={() => setIsUploadOpen(true)}
-                  className="text-sm font-bold text-brand hover:underline transition-all"
-                >
-                  + Upload Song
-                </button>
                 <div className="flex items-center gap-3 ml-4 border-l border-slate-800 pl-4">
                   <div className="text-left hidden sm:block">
                     <p className="text-xs font-bold text-white truncate max-w-[100px]">{user.displayName}</p>
@@ -298,7 +299,7 @@ export default function App() {
                   <SearchIcon className="w-8 h-8" />
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2">Library is empty</h3>
-                <p className="text-slate-500 max-w-xs text-sm leading-relaxed">Sign in as admin to upload your songs and build your discovery library.</p>
+                <p className="text-slate-500 max-w-xs text-sm leading-relaxed">Upload your favorite tracks to share them with the community.</p>
               </motion.div>
             )}
             
@@ -316,7 +317,7 @@ export default function App() {
                   />
                 ))}
                 
-                {user && isOnline && (
+                {isOnline && (
                   <motion.div 
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
