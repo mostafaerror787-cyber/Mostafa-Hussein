@@ -5,7 +5,6 @@ import { Song } from '../types';
 import EditModal from './EditModal';
 
 interface TrackCardProps {
-  key?: string | number;
   song: Song;
   onPlay: (song: Song) => void;
   onUpdate: () => void;

@@ -71,7 +71,7 @@ async function startServer() {
   app.post("/api/songs", (req, res) => {
     const db = getDb();
     const newSong = {
-      id: Date.now().toString(),
+      id: `song-${Date.now()}-${Math.round(Math.random() * 1000000)}`,
       createdAt: new Date().toISOString(),
       ...req.body
     };

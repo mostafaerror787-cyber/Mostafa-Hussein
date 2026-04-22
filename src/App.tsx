@@ -271,6 +271,7 @@ export default function App() {
             <AnimatePresence mode="popLayout">
               {songs.length === 0 && !loading && (
                 <motion.div 
+                  key="empty-library-msg"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
@@ -284,7 +285,7 @@ export default function App() {
                 </motion.div>
               )}
               
-              <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-8">
+              <div key="songs-grid" className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-8">
                 {filteredSongs.map((song) => (
                   <TrackCard 
                     key={song.id} 
@@ -300,6 +301,7 @@ export default function App() {
                 
                 {isOnline && (
                   <motion.div 
+                    key="add-song-card"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setIsUploadOpen(true)}
