@@ -19,6 +19,7 @@ export default function Player({ currentSong, onUpdate, onDelete, onNext, onPrev
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const playPromiseRef = useRef<Promise<void> | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -134,17 +135,40 @@ export default function Player({ currentSong, onUpdate, onDelete, onNext, onPrev
   }, [currentSong]);
 
   useEffect(() => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.play().catch((err) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const managePlayback = async () => {
+      try {
+        if (isPlaying) {
+          // Store the play promise
+          const playPromise = audio.play();
+          playPromiseRef.current = playPromise;
+          
+          await playPromise;
+          
+          // Re-check if we should still be playing after promise resolves
+          if (!isPlaying && playPromiseRef.current === playPromise) {
+            audio.pause();
+          }
+        } else {
+          // If we have a pending play promise, wait for it before pausing
+          if (playPromiseRef.current) {
+            await playPromiseRef.current;
+          }
+          audio.pause();
+        }
+      } catch (err: any) {
+        // Interruption errors are expected and can be ignored
+        if (err.name !== 'AbortError') {
           console.error('Playback failed:', err);
-          setError(`Playback failed: ${err.message || 'Browser blocked audio or file is invalid'}`);
+          setError(`Playback failed: ${err.message || 'Error occurred'}`);
           setIsPlaying(false);
-        });
-      } else {
-        audioRef.current.pause();
+        }
       }
-    }
+    };
+
+    managePlayback();
   }, [isPlaying, audioUrl]);
 
   const [isShuffle, setIsShuffle] = useState(false);
