@@ -229,14 +229,12 @@ export default function App() {
 
             {user ? (
               <>
-                {isAdmin && (
-                  <button 
-                    onClick={() => setIsUploadOpen(true)}
-                    className="text-sm font-bold text-brand hover:underline transition-all"
-                  >
-                    + Upload Song
-                  </button>
-                )}
+                <button 
+                  onClick={() => setIsUploadOpen(true)}
+                  className="text-sm font-bold text-brand hover:underline transition-all"
+                >
+                  + Upload Song
+                </button>
                 <div className="flex items-center gap-3 ml-4 border-l border-slate-800 pl-4">
                   <div className="text-left hidden sm:block">
                     <p className="text-xs font-bold text-white truncate max-w-[100px]">{user.displayName}</p>
@@ -318,7 +316,7 @@ export default function App() {
                   />
                 ))}
                 
-                {isAdmin && isOnline && (
+                {user && isOnline && (
                   <motion.div 
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}

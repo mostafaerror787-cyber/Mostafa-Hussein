@@ -87,7 +87,7 @@ export default function Sidebar({ isOpen, toggle, isLikedView, onViewChange, use
             </div>
 
             {/* Playlists Section */}
-            {isAdmin && (
+            {userEmail && (
               <div className="flex flex-col gap-2">
                 <div className="flex flex-col gap-1">
                   <SidebarItem icon={PlusSquare} label="Create Playlist" onClick={() => alert('Playlist creation coming soon!')} />

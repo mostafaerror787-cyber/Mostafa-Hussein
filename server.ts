@@ -97,9 +97,18 @@ async function startServer() {
     limits: { fileSize: 100 * 1024 * 1024 } 
   });
 
-  // API Health check
+  // API routes FIRST
+  app.use("/api", (req, res, next) => {
+    console.log(`[API_REQUEST] ${req.method} ${req.url}`);
+    next();
+  });
+
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", adminLoaded: !!admin.apps.length });
+    res.json({ 
+      status: "ok", 
+      adminLoaded: !!admin.apps.length,
+      bucket: globalBucket?.name || "uninitialized"
+    });
   });
 
   // Upload API handler
@@ -147,7 +156,7 @@ async function startServer() {
       
       const downloadUrl = `https://storage.googleapis.com/${globalBucket.name}/${encodeURIComponent(storagePath)}`;
       
-      console.log(`[API] Upload successful: ${downloadUrl}`);
+      console.log(`[API] Upload successful. Public URL: ${downloadUrl}`);
       
       res.json({ 
         url: downloadUrl,
@@ -158,10 +167,9 @@ async function startServer() {
     } catch (error: any) {
       console.error("[API] Server error during upload:", error);
       
-      // Detailed diagnostics for bucket issues
-      const isBucketError = error.message?.includes('bucket does not exist');
+      // Detailed diagnostics
       res.status(500).json({ 
-        error: isBucketError ? "Storage bucket configuration error" : "Server error during upload process",
+        error: "Server error during upload process",
         details: error.message,
         triedBucket: globalBucket?.name
       });
@@ -200,11 +208,12 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`[SERVER] Running on http://localhost:${PORT}`);
+    console.log(`[SERVER] Process PID: ${process.pid}`);
   });
 }
 
 startServer().catch(err => {
-  console.error("Failed to start server:", err);
+  console.error("[FATAL ERROR] Failed to start server:", err);
   process.exit(1);
 });
