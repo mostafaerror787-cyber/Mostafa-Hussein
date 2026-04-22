@@ -23,7 +23,7 @@ export default function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [loading, setLoading] = useState(true);
 
-  const isAdmin = user?.email === 'mostafaerror787@gmail.com' || user?.email === 'mostfaerror787@gmail.com';
+  const isAdmin = user?.email === 'mostafaerror787@gmail.com';
   const currentSong = songs.find(s => s.id === currentSongId) || null;
 
   useEffect(() => {
@@ -227,15 +227,14 @@ export default function App() {
               )}
             </div>
 
-            <button 
-              onClick={() => setIsUploadOpen(true)}
-              className="text-sm font-bold text-brand hover:underline transition-all"
-            >
-              + Upload Song
-            </button>
-
             {user ? (
               <>
+                <button 
+                  onClick={() => setIsUploadOpen(true)}
+                  className="text-sm font-bold text-brand hover:underline transition-all"
+                >
+                  + Upload Song
+                </button>
                 <div className="flex items-center gap-3 ml-4 border-l border-slate-800 pl-4">
                   <div className="text-left hidden sm:block">
                     <p className="text-xs font-bold text-white truncate max-w-[100px]">{user.displayName}</p>
@@ -317,7 +316,7 @@ export default function App() {
                   />
                 ))}
                 
-                {isOnline && (
+                {user && isOnline && (
                   <motion.div 
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}

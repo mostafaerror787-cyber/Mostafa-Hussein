@@ -10,19 +10,31 @@ import admin from "firebase-admin";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Import firebase config manually
-const firebaseConfig = JSON.parse(fs.readFileSync(path.join(__dirname, "firebase-applet-config.json"), "utf-8"));
-
-// Initialize Firebase Admin for server-side use
+// Global state
 let globalBucket: any = null;
+let firebaseConfig: any = null;
+
+function loadConfig() {
+  try {
+    const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+    if (fs.existsSync(configPath)) {
+      firebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+      return true;
+    }
+    console.warn("[SERVER] Warning: firebase-applet-config.json not found at", configPath);
+  } catch (err: any) {
+    console.error("[SERVER] Error loading config:", err.message);
+  }
+  return false;
+}
 
 async function initFirebaseAdmin() {
-  if (admin.apps.length && globalBucket) return;
+  if (admin.apps.length && globalBucket) return true;
+  if (!loadConfig()) return false;
 
   console.log("[SERVER] Initializing Firebase Admin...");
   try {
     const projectId = firebaseConfig.projectId;
-    // Common bucket name patterns
     const candidates = [
       firebaseConfig.storageBucket,                 // 1. From config
       `${projectId}.firebasestorage.app`,           // 2. Modern default
@@ -30,57 +42,54 @@ async function initFirebaseAdmin() {
       projectId                                     // 4. Raw ID
     ].filter(Boolean);
 
+    // Initial app init
+    if (!admin.apps.length) {
+      admin.initializeApp({
+        projectId: projectId,
+        storageBucket: candidates[0]
+      });
+    }
+
+    // Try to find the valid bucket. We'll do this quickly.
     for (const bucketName of candidates) {
       try {
-        console.log(`[SERVER] Testing bucket: ${bucketName}...`);
-        
-        // Initialize or re-initialize if needed (though admin only allows one default app)
-        if (!admin.apps.length) {
-          admin.initializeApp({
-            projectId: projectId,
-            storageBucket: bucketName
-          });
-        }
-        
         const testBucket = admin.storage().bucket(bucketName);
-        const [exists] = await testBucket.exists();
+        // exists() can be slow, we'll try it but move on if it fails
+        const [exists] = await testBucket.exists().catch(() => [false]);
         
         if (exists) {
           globalBucket = testBucket;
           console.log(`[SERVER] Success! Using bucket: ${bucketName}`);
-          break;
-        } else {
-          console.log(`[SERVER] Bucket ${bucketName} does not exist.`);
+          return true;
         }
       } catch (e: any) {
-        console.log(`[SERVER] Error testing ${bucketName}: ${e.message}`);
+        console.log(`[SERVER] Bucket candidate ${bucketName} failed: ${e.message}`);
       }
     }
 
-    if (!globalBucket) {
-      console.error("[SERVER] CRITICAL: Could not find any valid storage bucket.");
-      // Fallback to config version anyway as a last resort
-      if (!admin.apps.length) {
-        admin.initializeApp({ projectId: firebaseConfig.projectId, storageBucket: firebaseConfig.storageBucket });
-      }
-      globalBucket = admin.storage().bucket();
-    }
+    // fallback
+    globalBucket = admin.storage().bucket();
+    return true;
   } catch (err: any) {
     console.error("[SERVER] FATAL: Firebase Admin init failed:", err.message);
+    return false;
   }
 }
-
-// Perform initial init
-initFirebaseAdmin();
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  console.log("[SERVER] Starting server flow...");
-  
-  // Ensure we are initialized (idempotent)
-  await initFirebaseAdmin();
+  // 1. START LISTENING IMMEDIATELY to prevent proxy 404/timeout
+  const server = app.listen(PORT, "0.0.0.0", () => {
+    console.log(`[SERVER] Listening on http://0.0.0.0:${PORT} (PID: ${process.pid})`);
+  });
+
+  // 2. Init Firebase in background or as part of flow
+  initFirebaseAdmin().then(success => {
+    if (success) console.log("[SERVER] Firebase initialized successfully");
+    else console.warn("[SERVER] Firebase initialization skipped or failed");
+  });
 
   app.use(cors());
   app.use(express.json());
@@ -111,13 +120,17 @@ async function startServer() {
     });
   });
 
-  // Upload API handler
-  app.post("/api/upload", (req, res, next) => {
+  app.post("/api/upload", async (req, res, next) => {
     if (!globalBucket) {
-      return res.status(500).json({ error: "Firebase Storage is not available on the server" });
+      // Try to re-init if not ready
+      await initFirebaseAdmin();
     }
     
-    // Wrap multer in a function to catch synchronous errors
+    if (!globalBucket) {
+      console.error("[API] Upload blocked: globalBucket is null");
+      return res.status(503).json({ error: "Firebase Storage is still initializing or not available" });
+    }
+    
     upload.single("file")(req, res, (err) => {
       if (err) {
         console.error("[API] Multer error:", err);
@@ -208,8 +221,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`[SERVER] Running on http://localhost:${PORT}`);
-    console.log(`[SERVER] Process PID: ${process.pid}`);
+    // Already listening
   });
 }
 

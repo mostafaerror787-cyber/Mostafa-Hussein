@@ -22,11 +22,11 @@ export default function TrackCard({ song, onPlay, onUpdate, onDelete, isManageMo
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
 
-  const isAdmin = userEmail === 'mostafaerror787@gmail.com' || userEmail === 'mostfaerror787@gmail.com';
+  const isAdmin = userEmail === 'mostafaerror787@gmail.com';
 
   const handleToggleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!isAdmin) return; // Only admin can update shared song state
+    if (!userEmail) return; // Must be signed in to like
     
     setIsLiking(true);
     try {
