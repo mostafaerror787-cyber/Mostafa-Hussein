@@ -15,7 +15,10 @@ export default function App() {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isManageMode, setIsManageMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [user, setUser] = useState<{ email: string; displayName: string; photoURL?: string } | null>(null);
+  const [user, setUser] = useState<{ email: string; displayName: string; photoURL?: string } | null>(() => {
+    const saved = localStorage.getItem('music_app_session');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [loading, setLoading] = useState(true);
 
@@ -126,16 +129,19 @@ export default function App() {
   };
 
   const mockLogin = () => {
-    setUser({
+    const mockUserData = {
       email: 'mostafaerror787@gmail.com',
       displayName: 'Mostafa Error',
       photoURL: 'https://ui-avatars.com/api/?name=Mostafa+Error'
-    });
+    };
+    setUser(mockUserData);
+    localStorage.setItem('music_app_session', JSON.stringify(mockUserData));
   };
 
   const mockLogout = () => {
     setUser(null);
     setIsManageMode(false);
+    localStorage.removeItem('music_app_session');
   };
 
   if (loading) {
