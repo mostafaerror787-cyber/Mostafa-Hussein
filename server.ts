@@ -174,6 +174,12 @@ async function startServer() {
     res.status(500).json({ error: "Internal Server Error", details: err.message });
   });
 
+  // Catch-all for unknown /api routes to prevent falling through to Vite (HTML)
+  app.all("/api/*", (req, res) => {
+    console.warn(`[SERVER] 404 - API Route Not Found: ${req.method} ${req.url}`);
+    res.status(404).json({ error: `API route not found: ${req.method} ${req.url}` });
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

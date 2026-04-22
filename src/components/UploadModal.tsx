@@ -58,8 +58,22 @@ export default function UploadModal({ isOpen, onClose, onUpload }: UploadModalPr
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Upload failed');
+        let errorMessage = 'Upload failed';
+        try {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorData.details || errorMessage;
+          } else {
+            // Handle HTML or other responses
+            const textContent = await response.text();
+            console.error('Non-JSON error response:', textContent);
+            errorMessage = `Server error (${response.status}): ${textContent.slice(0, 100)}...`;
+          }
+        } catch (parseErr) {
+          errorMessage = `Server error (${response.status}). Could not parse error details.`;
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
