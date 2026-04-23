@@ -1,15 +1,24 @@
-export interface Song {
+export interface Player {
   id: string;
-  title: string;
-  artist: string;
-  coverUrl: string;
-  duration: string;
-  genre: string;
-  ownerId?: string;
-  isLiked?: boolean;
-  audioUrl?: string;
-  createdAt?: any;
+  name: string;
+  position: [number, number, number];
+  rotation: [number, number, number];
+  health: number;
+  team: 'red' | 'blue';
 }
 
-export type PlaybackState = 'playing' | 'paused' | 'stopped';
-export type RepeatMode = 'off' | 'all' | 'one';
+export interface GameState {
+  players: Player[];
+}
+
+export interface BulletData {
+  id: string;
+  origin: [number, number, number];
+  direction: [number, number, number];
+  timestamp: number;
+}
+
+export interface HitData {
+  victimId: string;
+  damage: number;
+}
