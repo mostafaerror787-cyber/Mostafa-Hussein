@@ -12,10 +12,14 @@
 }
 
 @layer base {
-  body {
-    @apply bg-black text-white selection:bg-arena-red/30 overflow-hidden;
-    cursor: default;
-  }
+  html, body {
+  @apply bg-black text-white selection:bg-arena-red/30 overflow-hidden overscroll-none;
+  cursor: default;
+  overscroll-behavior: none;
+  height: 100%;
+  width: 100%;
+  position: fixed;
+}
 
   canvas {
     @apply touch-none outline-none;
